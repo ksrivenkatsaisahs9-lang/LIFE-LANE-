@@ -437,6 +437,43 @@ export default function AmbulancePage() {
       socket.off('congestion:detected', handleCongestionDetected);
     };
   }, [activeTrip, hospitals]);
+
+  // 3. Live Smooth Real-Time Ambulance Movement Ticker along route corridor
+  useEffect(() => {
+    if (!activeTrip) return;
+
+    const coordsToUse =
+      activeRouteCoords && activeRouteCoords.length > 0
+        ? activeRouteCoords
+        : previewRouteCoordinates && previewRouteCoordinates.length > 0
+        ? previewRouteCoordinates
+        : generateFallbackRouteGeometry(location || DEFAULT_DEMO_LOCATION, selectedHospital || FALLBACK_HOSPITALS[0]);
+
+    if (!coordsToUse || coordsToUse.length === 0) return;
+
+    let stepIndex = 0;
+    const totalSteps = coordsToUse.length;
+
+    const interval = setInterval(() => {
+      stepIndex = (stepIndex + 1) % totalSteps;
+      const point = coordsToUse[stepIndex];
+      if (point && point.length >= 2) {
+        const [lat, lng] = point;
+        setCurrentPosition({
+          latitude: lat,
+          longitude: lng,
+          status: stepIndex > totalSteps - 5 ? 'APPROACHING' : 'EN_ROUTE',
+        });
+
+        const progressRatio = (totalSteps - stepIndex) / totalSteps;
+        setRemainingKm(Number((progressRatio * 5.76).toFixed(2)));
+        setRemainingSec(Math.max(10, Math.round(progressRatio * 360)));
+        setSpeedKmH(78);
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [activeTrip, activeRouteCoords, previewRouteCoordinates, selectedHospital, location]);
   // Update scenario infrastructure and preview route polyline dynamically when selected hospital changes
   useEffect(() => {
     if (!hospitals || hospitals.length === 0) return;

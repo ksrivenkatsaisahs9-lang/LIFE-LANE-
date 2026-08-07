@@ -85,6 +85,7 @@ function OperationsMap({
         {/* Fixed Navigation Route Polyline - Drawn ONCE from OSRM route coordinates */}
         {routeCoordinates && routeCoordinates.length > 0 && (
           <Polyline
+            key={`route-polyline-${routeCoordinates.length}-${routeCoordinates[0]?.[0] || 0}-${routeCoordinates[0]?.[1] || 0}`}
             positions={routeCoordinates}
             pathOptions={{
               color: '#C62828',

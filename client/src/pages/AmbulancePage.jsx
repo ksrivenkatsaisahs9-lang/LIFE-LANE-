@@ -204,6 +204,7 @@ export default function AmbulancePage() {
 
   // Active Journey Real-Time State
   const [startingEmergency, setStartingEmergency] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [activeTrip, setActiveTrip] = useState(null);
   const [currentPosition, setCurrentPosition] = useState(null);
   const [remainingKm, setRemainingKm] = useState(0);
@@ -269,6 +270,7 @@ export default function AmbulancePage() {
   };
 
   const handleReturnToOperations = () => {
+    setIsNavigating(false);
     setActiveTrip(null);
     setCompletedInfo(null);
     setCancelledInfo(null);
@@ -276,6 +278,7 @@ export default function AmbulancePage() {
     setJourneyStatus('EN_ROUTE');
     setRerouteNotification(null);
     setActiveRouteCoords([]);
+    setPreviewRouteCoordinates([]);
     setCurrentPosition(null);
     api.post('/demo/reset').catch(() => {});
   };
@@ -497,6 +500,7 @@ export default function AmbulancePage() {
         const destPoint = coordsToUse[totalSteps - 1];
 
         // 1 & 5. Stop animation & set trip status to ARRIVED immediately
+        setIsNavigating(false);
         setJourneyStatus('ARRIVED');
         if (destPoint && Array.isArray(destPoint) && destPoint.length >= 2) {
           setCurrentPosition({
@@ -793,6 +797,7 @@ export default function AmbulancePage() {
         status: 'EN_ROUTE',
       };
 
+      setIsNavigating(true);
       setActiveTrip({
         ...activeTripObj,
         routeCoordinates: roadCoords,
@@ -880,11 +885,7 @@ export default function AmbulancePage() {
             incidents={incidents}
             cameras={cameras}
             roadUsers={roadUsers}
-            routeCoordinates={
-              journeyStatus === 'ARRIVED' || journeyStatus === 'COMPLETED' || completedInfo || !activeTrip
-                ? []
-                : activeRouteCoords
-            }
+            routeCoordinates={isNavigating ? activeRouteCoords : []}
             followMode={!!activeTrip}
           />
 

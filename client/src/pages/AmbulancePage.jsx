@@ -494,9 +494,10 @@ export default function AmbulancePage() {
     const interval = setInterval(() => {
       if (stepIndex >= totalSteps - 1) {
         clearInterval(interval);
-        setJourneyStatus('COMPLETED');
         const destPoint = coordsToUse[totalSteps - 1];
 
+        // 1 & 5. Stop animation & set trip status to ARRIVED immediately
+        setJourneyStatus('ARRIVED');
         if (destPoint && Array.isArray(destPoint) && destPoint.length >= 2) {
           setCurrentPosition({
             latitude: destPoint[0],
@@ -509,9 +510,11 @@ export default function AmbulancePage() {
         setRemainingKm(0);
         setRemainingSec(0);
 
-        // Remove red polyline and navigation overlays immediately upon arrival
+        // 2 & 3. Remove red navigation polyline & overlays from map immediately
         setActiveRouteCoords([]);
         setPreviewRouteCoordinates([]);
+        setIntelligenceResult(null);
+        setSelectedRouteId(null);
         setRerouteNotification(null);
         setCongestionNotification(null);
 
@@ -524,14 +527,6 @@ export default function AmbulancePage() {
         );
 
         const arrivalTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        setCompletedInfo({
-          title: 'Emergency Completed Successfully',
-          subtitle: 'Patient has arrived at the destination hospital.',
-          time: arrivalTimeStr,
-          hospitalName: currentHosp?.name || 'Destination Hospital',
-          totalDistanceCoveredKm: initialDistKm,
-          statusText: 'Emergency Completed',
-        });
 
         // Notify socket server to update police & hospital dashboards
         try {
@@ -546,6 +541,19 @@ export default function AmbulancePage() {
             });
           }
         } catch (e) {}
+
+        // 6. After 2 seconds, display Emergency Completed Successfully notification
+        setTimeout(() => {
+          setJourneyStatus('COMPLETED');
+          setCompletedInfo({
+            title: 'Emergency Completed Successfully',
+            subtitle: 'Patient has arrived at the destination hospital.',
+            time: arrivalTimeStr,
+            hospitalName: currentHosp?.name || 'Destination Hospital',
+            totalDistanceCoveredKm: initialDistKm,
+            statusText: 'Emergency Completed',
+          });
+        }, 2000);
 
         return;
       }
@@ -850,7 +858,11 @@ export default function AmbulancePage() {
             incidents={incidents}
             cameras={cameras}
             roadUsers={roadUsers}
-            routeCoordinates={activeRouteCoords.length > 0 ? activeRouteCoords : (activeTrip?.routeCoordinates || activeSelectedRoute?.coordinates || previewRouteCoordinates || [])}
+            routeCoordinates={
+              journeyStatus === 'ARRIVED' || journeyStatus === 'COMPLETED' || completedInfo || !activeTrip
+                ? []
+                : activeRouteCoords
+            }
             followMode={!!activeTrip}
           />
 

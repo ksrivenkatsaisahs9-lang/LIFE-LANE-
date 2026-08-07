@@ -496,20 +496,57 @@ export default function AmbulancePage() {
         clearInterval(interval);
         setJourneyStatus('COMPLETED');
         const destPoint = coordsToUse[totalSteps - 1];
+
         if (destPoint && Array.isArray(destPoint) && destPoint.length >= 2) {
           setCurrentPosition({
             latitude: destPoint[0],
             longitude: destPoint[1],
             bearing: 0,
-            status: 'COMPLETED',
+            status: 'ARRIVED',
           });
         }
+
         setRemainingKm(0);
         setRemainingSec(0);
+
+        // Remove red polyline and navigation overlays immediately upon arrival
+        setActiveRouteCoords([]);
+        setPreviewRouteCoordinates([]);
+        setRerouteNotification(null);
+        setCongestionNotification(null);
+
+        // Restore all traffic signals to NORMAL operation
+        setJunctions((prevJunctions) =>
+          prevJunctions.map((junc) => ({
+            ...junc,
+            signalState: 'NORMAL',
+          }))
+        );
+
+        const arrivalTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         setCompletedInfo({
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          title: 'Emergency Completed Successfully',
+          subtitle: 'Patient has arrived at the destination hospital.',
+          time: arrivalTimeStr,
           hospitalName: currentHosp?.name || 'Destination Hospital',
+          totalDistanceCoveredKm: initialDistKm,
+          statusText: 'Emergency Completed',
         });
+
+        // Notify socket server to update police & hospital dashboards
+        try {
+          const socket = connectSocket();
+          if (socket && activeTrip?.id) {
+            socket.emit('trip:complete', {
+              tripId: activeTrip.id,
+              hospitalId: currentHosp?.id,
+              ambulanceCode: 'AMB-1042',
+              arrivalTime: arrivalTimeStr,
+              message: 'Thank you for your cooperation. The ambulance has safely reached its destination.',
+            });
+          }
+        } catch (e) {}
+
         return;
       }
 
@@ -869,24 +906,47 @@ export default function AmbulancePage() {
         <div className="w-full lg:w-[32%] h-full bg-white border-l border-[#E4E7EC] flex flex-col overflow-y-auto p-5">
           {/* SCENARIO A: Completed Journey Screen */}
           {completedInfo ? (
-            <div className="my-auto text-center py-6">
-              <div className="w-12 h-12 bg-[#F0FDF4] border border-[#DCFCE7] text-[#16794A] rounded-[10px] flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-6 h-6" />
+            <div className="my-auto text-center py-6 animate-fade-in space-y-4">
+              <div className="w-14 h-14 bg-[#F0FDF4] border border-[#DCFCE7] text-[#16794A] rounded-full flex items-center justify-center mx-auto shadow-sm">
+                <CheckCircle2 className="w-8 h-8" />
               </div>
 
-              <span className="text-xs font-medium text-[#16794A] uppercase tracking-wider block mb-1">
-                Completed
-              </span>
-              <h2 className="text-xl font-semibold text-[#182230] mb-2">Journey Completed</h2>
-              <p className="text-sm font-medium text-[#182230] mb-1">{completedInfo.hospitalName}</p>
-              <p className="text-xs text-[#667085] mb-6">Arrived at {completedInfo.time}</p>
+              <div>
+                <span className="text-xs font-bold text-[#16794A] uppercase tracking-wider block mb-1">
+                  Arrival Confirmed
+                </span>
+                <h2 className="text-xl font-bold text-[#182230]">{completedInfo.title || 'Emergency Completed Successfully'}</h2>
+                <p className="text-xs text-[#667085] mt-1">{completedInfo.subtitle || 'Patient has arrived at the destination hospital.'}</p>
+              </div>
+
+              {/* Arrival Metrics Card */}
+              <div className="p-4 bg-[#F0FDF4] border border-[#DCFCE7] rounded-[10px] text-left space-y-2.5 shadow-xs">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-[#667085]">Destination Hospital:</span>
+                  <span className="font-bold text-[#182230]">{completedInfo.hospitalName}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs pt-2 border-t border-[#DCFCE7]">
+                  <span className="text-[#667085]">Arrival Time:</span>
+                  <span className="font-semibold text-[#182230]">{completedInfo.time}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs pt-2 border-t border-[#DCFCE7]">
+                  <span className="text-[#667085]">Total Distance Covered:</span>
+                  <span className="font-semibold text-[#182230]">{completedInfo.totalDistanceCoveredKm || 5.4} km</span>
+                </div>
+                <div className="flex justify-between items-center text-xs pt-2 border-t border-[#DCFCE7]">
+                  <span className="text-[#667085]">Emergency Status:</span>
+                  <span className="font-bold text-[#16794A] bg-[#DCFCE7] px-2 py-0.5 rounded-[4px]">
+                    {completedInfo.statusText || 'Emergency Completed'}
+                  </span>
+                </div>
+              </div>
 
               <button
                 type="button"
                 onClick={handleReturnToOperations}
-                className="w-full py-2.5 px-4 bg-[#172033] hover:bg-[#0F172A] text-white text-xs font-medium rounded-[8px] transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 bg-[#172033] hover:bg-[#0F172A] text-white text-xs font-semibold rounded-[8px] transition-colors flex items-center justify-center gap-2 shadow-sm"
               >
-                Return to operations
+                <span>Start New Emergency</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>

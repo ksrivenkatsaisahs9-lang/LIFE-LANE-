@@ -76,14 +76,16 @@ const createTrip = async (req, res) => {
 
     // 1. Get authenticated user's ambulance (with fallback if DB table not yet created)
     let ambulance = null;
-    try {
-      const { data: ambData } = await supabase
-        .from('ambulances')
-        .select('*')
-        .eq('user_id', req.user.id)
-        .maybeSingle();
-      ambulance = ambData;
-    } catch (e) {}
+    if (!supabase.isOffline) {
+      try {
+        const { data: ambData } = await supabase
+          .from('ambulances')
+          .select('*')
+          .eq('user_id', req.user.id)
+          .maybeSingle();
+        ambulance = ambData;
+      } catch (e) {}
+    }
 
     if (!ambulance) {
       ambulance = {
@@ -100,14 +102,16 @@ const createTrip = async (req, res) => {
 
     // 2. Get destination hospital (with fallback if DB table not yet created)
     let hospital = null;
-    try {
-      const { data: hospData } = await supabase
-        .from('hospitals')
-        .select('*')
-        .eq('id', hospitalId)
-        .maybeSingle();
-      hospital = hospData;
-    } catch (e) {}
+    if (!supabase.isOffline) {
+      try {
+        const { data: hospData } = await supabase
+          .from('hospitals')
+          .select('*')
+          .eq('id', hospitalId)
+          .maybeSingle();
+        hospital = hospData;
+      } catch (e) {}
+    }
 
     if (!hospital) {
       hospital = FALLBACK_HOSPITALS.find((h) => h.id === hospitalId) || FALLBACK_HOSPITALS[0];
@@ -146,43 +150,45 @@ const createTrip = async (req, res) => {
     };
 
     // Attempt DB insert if table exists
-    try {
-      const { data: insertedTrip } = await supabase
-        .from('emergency_trips')
-        .insert({
-          ambulance_id: ambulance.id,
-          hospital_id: hospital.id,
-          emergency_type: emergencyType,
-          start_latitude: start.latitude,
-          start_longitude: start.longitude,
-          current_latitude: start.latitude,
-          current_longitude: start.longitude,
-          destination_latitude: hospital.latitude,
-          destination_longitude: hospital.longitude,
-          status: 'ACTIVE',
-          estimated_distance_km: route.distanceKm,
-          estimated_duration_minutes: route.estimatedMinutes,
-          remaining_distance_km: route.distanceKm,
-          remaining_duration_minutes: route.estimatedMinutes,
-          route_coordinates: route.coordinates,
-          route_index: 0,
-          started_at: now,
-        })
-        .select()
-        .single();
+    if (!supabase.isOffline) {
+      try {
+        const { data: insertedTrip } = await supabase
+          .from('emergency_trips')
+          .insert({
+            ambulance_id: ambulance.id,
+            hospital_id: hospital.id,
+            emergency_type: emergencyType,
+            start_latitude: start.latitude,
+            start_longitude: start.longitude,
+            current_latitude: start.latitude,
+            current_longitude: start.longitude,
+            destination_latitude: hospital.latitude,
+            destination_longitude: hospital.longitude,
+            status: 'ACTIVE',
+            estimated_distance_km: route.distanceKm,
+            estimated_duration_minutes: route.estimatedMinutes,
+            remaining_distance_km: route.distanceKm,
+            remaining_duration_minutes: route.estimatedMinutes,
+            route_coordinates: route.coordinates,
+            route_index: 0,
+            started_at: now,
+          })
+          .select()
+          .single();
 
-      if (insertedTrip) {
-        trip = insertedTrip;
-      }
-    } catch (e) {}
+        if (insertedTrip) {
+          trip = insertedTrip;
+        }
+      } catch (e) {}
 
-    // Update ambulance status
-    try {
-      await supabase
-        .from('ambulances')
-        .update({ status: 'EN_ROUTE', latitude: start.latitude, longitude: start.longitude })
-        .eq('id', ambulance.id);
-    } catch (e) {}
+      // Update ambulance status
+      try {
+        await supabase
+          .from('ambulances')
+          .update({ status: 'EN_ROUTE', latitude: start.latitude, longitude: start.longitude })
+          .eq('id', ambulance.id);
+      } catch (e) {}
+    }
 
     // 4. Start backend simulation in memory & Socket streaming
     const sim = startTripSimulation(trip);
@@ -228,43 +234,45 @@ const getActiveTrip = async (req, res) => {
     const role = req.user.role;
 
     if (role === 'AMBULANCE') {
-      try {
-        const { data: amb } = await supabase
-          .from('ambulances')
-          .select('id, ambulance_code, vehicle_number')
-          .eq('user_id', req.user.id)
-          .maybeSingle();
-
-        if (amb) {
-          const { data: trip } = await supabase
-            .from('emergency_trips')
-            .select('*')
-            .eq('ambulance_id', amb.id)
-            .eq('status', 'ACTIVE')
+      if (!supabase.isOffline) {
+        try {
+          const { data: amb } = await supabase
+            .from('ambulances')
+            .select('id, ambulance_code, vehicle_number')
+            .eq('user_id', req.user.id)
             .maybeSingle();
 
-          if (trip) {
-            const sim = startTripSimulation(trip);
-            const sanitized = sanitizeTrip(trip);
-            if (sim) {
-              const remSteps = Math.max(0, sim.totalSteps - sim.currentIndex);
-              const remSec = Math.round((remSteps * 0.65));
-              const remKm = Number(((remSteps * 14) / 1000).toFixed(2));
-              sanitized.remainingDistanceKm = remKm;
-              sanitized.remainingSeconds = remSec;
-              sanitized.remainingDurationMinutes = Math.ceil(remSec / 60);
-              sanitized.speedKmH = 78;
-              if (sim.currentLatitude) sanitized.currentLatitude = sim.currentLatitude;
-              if (sim.currentLongitude) sanitized.currentLongitude = sim.currentLongitude;
+          if (amb) {
+            const { data: trip } = await supabase
+              .from('emergency_trips')
+              .select('*')
+              .eq('ambulance_id', amb.id)
+              .eq('status', 'ACTIVE')
+              .maybeSingle();
+
+            if (trip) {
+              const sim = startTripSimulation(trip);
+              const sanitized = sanitizeTrip(trip);
+              if (sim) {
+                const remSteps = Math.max(0, sim.totalSteps - sim.currentIndex);
+                const remSec = Math.round((remSteps * 0.65));
+                const remKm = Number(((remSteps * 14) / 1000).toFixed(2));
+                sanitized.remainingDistanceKm = remKm;
+                sanitized.remainingSeconds = remSec;
+                sanitized.remainingDurationMinutes = Math.ceil(remSec / 60);
+                sanitized.speedKmH = 78;
+                if (sim.currentLatitude) sanitized.currentLatitude = sim.currentLatitude;
+                if (sim.currentLongitude) sanitized.currentLongitude = sim.currentLongitude;
+              }
+              return res.status(200).json({
+                success: true,
+                activeTrip: sanitized,
+                ambulance: amb,
+              });
             }
-            return res.status(200).json({
-              success: true,
-              activeTrip: sanitized,
-              ambulance: amb,
-            });
           }
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
 
       // Check in-memory active simulations fallback
       for (const [tripId, sim] of activeSimulations.entries()) {

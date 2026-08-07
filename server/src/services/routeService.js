@@ -97,21 +97,25 @@ async function getRoutePreview(start, destination, hospitalId = null) {
   let rawCoordinates = null;
   let source = 'OSRM';
 
-  // 1. Attempt OSRM driving route lookup
-  try {
-    const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
-    const response = await axios.get(osrmUrl, { timeout: 4000 });
+  const supabase = require('../config/supabase');
 
-    if (response.data && response.data.routes && response.data.routes.length > 0) {
-      const geoJsonCoords = response.data.routes[0].geometry.coordinates; // [lng, lat]
-      const normalized = normalizeRouteCoordinates(geoJsonCoords);
+  // 1. Attempt OSRM driving route lookup (only if online)
+  if (!supabase.isOffline) {
+    try {
+      const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${destLng},${destLat}?overview=full&geometries=geojson&steps=true`;
+      const response = await axios.get(osrmUrl, { timeout: 800 });
 
-      if (validateRouteCoordinates(normalized, start, destination)) {
-        rawCoordinates = normalized;
+      if (response.data && response.data.routes && response.data.routes.length > 0) {
+        const geoJsonCoords = response.data.routes[0].geometry.coordinates; // [lng, lat]
+        const normalized = normalizeRouteCoordinates(geoJsonCoords);
+
+        if (validateRouteCoordinates(normalized, start, destination)) {
+          rawCoordinates = normalized;
+        }
       }
+    } catch (err) {
+      console.warn(`[RouteService] OSRM lookup warning for hospital ${hospitalId}: ${err.message}. Using demo road geometry.`);
     }
-  } catch (err) {
-    console.warn(`[RouteService] OSRM lookup warning for hospital ${hospitalId}: ${err.message}. Using demo road geometry.`);
   }
 
   // 2. Fallback to high-density road geometry if OSRM is unavailable or invalid

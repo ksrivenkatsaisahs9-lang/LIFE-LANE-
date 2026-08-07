@@ -1,9 +1,9 @@
 -- ============================================
--- LifeLane - Full Database Schema
+-- LifeLane - Full Database Schema & Migrations
 -- Database: Supabase PostgreSQL
 -- ============================================
 -- Execute this SQL in:
--- Supabase Dashboard → SQL Editor → New Query
+-- Supabase Dashboard → SQL Editor → New Query → Run
 -- ============================================
 
 -- 1. Hospitals Table
@@ -15,8 +15,17 @@ CREATE TABLE IF NOT EXISTS hospitals (
   longitude           DOUBLE PRECISION NOT NULL,
   emergency_available BOOLEAN DEFAULT true,
   is_active           BOOLEAN DEFAULT true,
+  scenario_code       TEXT,
+  scenario_title      TEXT,
+  scenario_description TEXT,
   created_at          TIMESTAMPTZ DEFAULT now()
 );
+
+-- Scenario Columns for Hospitals Table (Migration fallback)
+ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS scenario_code TEXT;
+ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS scenario_title TEXT;
+ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS scenario_description TEXT;
+
 
 -- 2. Users Table
 CREATE TABLE IF NOT EXISTS users (
@@ -37,9 +46,13 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
+-- Ensure hospital_id column exists if users table was previously created without it
+ALTER TABLE users ADD COLUMN IF NOT EXISTS hospital_id UUID REFERENCES hospitals(id) ON DELETE SET NULL;
+
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);
 CREATE INDEX IF NOT EXISTS idx_users_hospital ON users (hospital_id);
+
 
 -- 3. Ambulances Table
 CREATE TABLE IF NOT EXISTS ambulances (
@@ -56,6 +69,7 @@ CREATE TABLE IF NOT EXISTS ambulances (
 
 CREATE INDEX IF NOT EXISTS idx_ambulances_user_id ON ambulances (user_id);
 
+
 -- 4. Junctions Table
 CREATE TABLE IF NOT EXISTS junctions (
   id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -70,6 +84,7 @@ CREATE TABLE IF NOT EXISTS junctions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_junctions_police_user ON junctions (assigned_police_user_id);
+
 
 -- 5. Emergency Trips Table
 CREATE TABLE IF NOT EXISTS emergency_trips (
@@ -96,18 +111,16 @@ CREATE TABLE IF NOT EXISTS emergency_trips (
   created_at                 TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_trips_ambulance ON emergency_trips (ambulance_id);
-CREATE INDEX IF NOT EXISTS idx_trips_hospital ON emergency_trips (hospital_id);
-
--- ============================================
--- STEP 4 ALTER MIGRATIONS (Run if tables exist)
--- ============================================
-ALTER TABLE users ADD COLUMN IF NOT EXISTS hospital_id UUID REFERENCES hospitals(id) ON DELETE SET NULL;
+-- Migration columns for emergency_trips
 ALTER TABLE emergency_trips ADD COLUMN IF NOT EXISTS route_coordinates JSONB;
 ALTER TABLE emergency_trips ADD COLUMN IF NOT EXISTS route_index INTEGER DEFAULT 0;
 ALTER TABLE emergency_trips ADD COLUMN IF NOT EXISTS remaining_distance_km DOUBLE PRECISION;
 ALTER TABLE emergency_trips ADD COLUMN IF NOT EXISTS remaining_duration_minutes INTEGER;
 ALTER TABLE emergency_trips ADD COLUMN IF NOT EXISTS last_location_update TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_trips_ambulance ON emergency_trips (ambulance_id);
+CREATE INDEX IF NOT EXISTS idx_trips_hospital ON emergency_trips (hospital_id);
+
 
 -- 6. Route Decisions Audit Table
 CREATE TABLE IF NOT EXISTS route_decisions (
@@ -125,10 +138,6 @@ CREATE TABLE IF NOT EXISTS route_decisions (
 
 CREATE INDEX IF NOT EXISTS idx_route_decisions_trip ON route_decisions (trip_id);
 
--- Scenario Columns for Hospitals Table
-ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS scenario_code TEXT;
-ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS scenario_title TEXT;
-ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS scenario_description TEXT;
 
 -- 7. Traffic Signals Table
 CREATE TABLE IF NOT EXISTS traffic_signals (
@@ -142,3 +151,14 @@ CREATE TABLE IF NOT EXISTS traffic_signals (
 );
 
 CREATE INDEX IF NOT EXISTS idx_traffic_signals_junction ON traffic_signals (junction_id);
+
+-- ============================================
+-- 8. Enable Public Access / Disable RLS for Demo
+-- ============================================
+ALTER TABLE hospitals DISABLE ROW LEVEL SECURITY;
+ALTER TABLE users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE ambulances DISABLE ROW LEVEL SECURITY;
+ALTER TABLE junctions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE emergency_trips DISABLE ROW LEVEL SECURITY;
+ALTER TABLE route_decisions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE traffic_signals DISABLE ROW LEVEL SECURITY;

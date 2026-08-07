@@ -1,13 +1,16 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SECRET_KEY;
+const supabaseUrl = process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || 'dummy_key';
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error('Missing SUPABASE_URL or SUPABASE_SECRET_KEY in environment variables');
-  process.exit(1);
+const isOffline = !process.env.SUPABASE_URL || (!process.env.SUPABASE_SECRET_KEY && !process.env.SUPABASE_PUBLISHABLE_KEY);
+
+if (isOffline) {
+  console.warn('⚠️ SUPABASE_URL or SUPABASE_SECRET_KEY missing in .env - running in instant offline mode.');
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+supabase.isOffline = isOffline;
 
 module.exports = supabase;
+

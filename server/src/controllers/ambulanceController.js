@@ -15,6 +15,13 @@ const FALLBACK_AMBULANCE = {
  */
 const getMyAmbulance = async (req, res) => {
   try {
+    if (supabase.isOffline) {
+      return res.status(200).json({
+        success: true,
+        ambulance: { ...FALLBACK_AMBULANCE, userId: req.user.id },
+      });
+    }
+
     const { data: ambulance, error } = await supabase
       .from('ambulances')
       .select('*')

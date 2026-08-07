@@ -11,6 +11,10 @@ const FALLBACK_JUNCTIONS = [
  */
 const getJunctions = async (req, res) => {
   try {
+    if (supabase.isOffline) {
+      return res.status(200).json({ success: true, junctions: FALLBACK_JUNCTIONS });
+    }
+
     const { data: junctions, error } = await supabase
       .from('junctions')
       .select('*')
@@ -89,7 +93,7 @@ const updateJunctionPriority = async (req, res) => {
     const newState = state || 'EMERGENCY_PRIORITY';
 
     try {
-      const { getIO } = require('../socket');
+      const { getIO } = require('../sockets/socketHandler');
       const io = getIO();
       io.to('junctions').emit('junction:updated', { junctionId: id, signalState: newState });
     } catch (e) {}

@@ -9,6 +9,13 @@ const FALLBACK_HOSPITALS = getAllDemoHospitals();
  */
 const getHospitals = async (req, res) => {
   try {
+    if (supabase.isOffline) {
+      return res.status(200).json({
+        success: true,
+        hospitals: FALLBACK_HOSPITALS,
+      });
+    }
+
     const { data: dbHospitals, error } = await supabase
       .from('hospitals')
       .select('*')

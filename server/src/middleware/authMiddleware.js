@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const supabase = require('../config/supabase');
+const { MOCK_USERS } = require('../utils/mockUsers');
 
 /**
  * Authenticate requests via Bearer token.
@@ -27,25 +28,29 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-    // Try query with hospital_id first; if column missing, fallback to standard fields
-    let { data: user, error } = await supabase
-      .from('users')
-      .select('id, name, email, role, phone, organization, badge_id, vehicle_number, hospital_name, hospital_id, is_verified, is_active')
-      .eq('id', decoded.userId)
-      .maybeSingle();
+    let user = Object.values(MOCK_USERS).find((u) => u.id === decoded.userId) || null;
 
-    if (error && error.code === '42703') {
-      // Column hospital_id does not exist yet -> fallback select
-      const fallback = await supabase
-        .from('users')
-        .select('id, name, email, role, phone, organization, badge_id, vehicle_number, hospital_name, is_verified, is_active')
-        .eq('id', decoded.userId)
-        .maybeSingle();
-      user = fallback.data;
-      error = fallback.error;
+    if (!user) {
+      // Try Supabase with short timeout if not a mock user
+      try {
+        const supabasePromise = supabase
+          .from('users')
+          .select('id, name, email, role, phone, organization, badge_id, vehicle_number, hospital_name, hospital_id, is_verified, is_active')
+          .eq('id', decoded.userId)
+          .maybeSingle();
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Supabase timeout')), 300)
+        );
+
+        const dbRes = await Promise.race([supabasePromise, timeoutPromise]);
+        user = dbRes ? dbRes.data : null;
+      } catch (e) {
+        // DB unavailable or timed out
+      }
     }
 
-    if (error || !user || !user.is_active) {
+    if (!user || !user.is_active) {
       return res.status(401).json({
         success: false,
         message: 'User not found or inactive',

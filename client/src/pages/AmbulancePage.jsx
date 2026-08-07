@@ -364,10 +364,11 @@ export default function AmbulancePage() {
     const handleCompleted = (data) => {
       if (data.tripId !== activeTrip.id) return;
 
+      const safeHospList = hospitals && hospitals.length > 0 ? hospitals : FALLBACK_HOSPITALS;
       setJourneyStatus('COMPLETED');
       setCompletedInfo({
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        hospitalName: hospitals.find((h) => String(h.id) === String(activeTrip.hospitalId))?.name || 'Destination Hospital',
+        hospitalName: safeHospList.find((h) => String(h.id) === String(activeTrip.hospitalId))?.name || 'Destination Hospital',
       });
       setActiveTrip(null);
       setRerouteNotification(null);
@@ -407,11 +408,12 @@ export default function AmbulancePage() {
     };
 
     const handleTripCancelled = (data) => {
+      const safeHospList = hospitals && hospitals.length > 0 ? hospitals : FALLBACK_HOSPITALS;
       setJourneyStatus('CANCELLED');
       setCancelledInfo({
         time: new Date(data.cancelledAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         reason: data.reason || 'Activated by mistake',
-        hospitalName: hospitals.find((h) => String(h.id) === String(data.hospitalId))?.name || 'Destination Hospital',
+        hospitalName: safeHospList.find((h) => String(h.id) === String(data.hospitalId))?.name || 'Destination Hospital',
       });
       setActiveTrip(null);
       setActiveRouteCoords([]);
@@ -442,12 +444,16 @@ export default function AmbulancePage() {
   useEffect(() => {
     if (!activeTrip) return;
 
+    const safeHospList = hospitals && hospitals.length > 0 ? hospitals : FALLBACK_HOSPITALS;
+    const currentHosp = safeHospList.find((h) => String(h.id) === String(selectedHospitalId)) || safeHospList[0];
+    const currentLoc = location || DEFAULT_DEMO_LOCATION;
+
     const coordsToUse =
       activeRouteCoords && activeRouteCoords.length > 0
         ? activeRouteCoords
         : previewRouteCoordinates && previewRouteCoordinates.length > 0
         ? previewRouteCoordinates
-        : generateFallbackRouteGeometry(location || DEFAULT_DEMO_LOCATION, selectedHospital || FALLBACK_HOSPITALS[0]);
+        : generateFallbackRouteGeometry(currentLoc, currentHosp, currentHosp?.id);
 
     if (!coordsToUse || coordsToUse.length === 0) return;
 
@@ -457,7 +463,7 @@ export default function AmbulancePage() {
     const interval = setInterval(() => {
       stepIndex = (stepIndex + 1) % totalSteps;
       const point = coordsToUse[stepIndex];
-      if (point && point.length >= 2) {
+      if (point && Array.isArray(point) && point.length >= 2) {
         const [lat, lng] = point;
         setCurrentPosition({
           latitude: lat,
@@ -473,18 +479,17 @@ export default function AmbulancePage() {
     }, 500);
 
     return () => clearInterval(interval);
-  }, [activeTrip, activeRouteCoords, previewRouteCoordinates, selectedHospital, location]);
+  }, [activeTrip, activeRouteCoords, previewRouteCoordinates, selectedHospitalId, hospitals, location]);
+
   // Update scenario infrastructure and preview route polyline dynamically when selected hospital changes
   useEffect(() => {
-    if (!hospitals || hospitals.length === 0) return;
-    const selectedHosp = hospitals.find((h) => String(h.id) === String(selectedHospitalId)) || hospitals[0];
+    const safeHospList = hospitals && hospitals.length > 0 ? hospitals : FALLBACK_HOSPITALS;
+    const selectedHosp = safeHospList.find((h) => String(h.id) === String(selectedHospitalId)) || safeHospList[0];
     if (!selectedHosp) return;
 
-    // Generate road route polyline from ambulance location to selected hospital
-    if (location && selectedHosp) {
-      const coords = generateFallbackRouteGeometry(location, selectedHosp, selectedHosp.id);
-      setPreviewRouteCoordinates(coords);
-    }
+    const currentLoc = location || DEFAULT_DEMO_LOCATION;
+    const coords = generateFallbackRouteGeometry(currentLoc, selectedHosp, selectedHosp.id);
+    setPreviewRouteCoordinates(coords);
 
     const code = selectedHosp.scenarioCode || 'INTERSECTION_CORRIDOR';
 

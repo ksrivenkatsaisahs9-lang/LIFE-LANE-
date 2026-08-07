@@ -213,6 +213,32 @@ export default function LoginPage() {
           </div>
         </div>
 
+        {/* Database Credentials Cheat Sheet */}
+        <div className="mt-3 bg-[#F8F9FC] border border-[#E4E7EC] rounded-[12px] p-3.5 text-xs">
+          <div className="flex items-center justify-between font-semibold text-[#182230] mb-2">
+            <span className="flex items-center gap-1.5">🔑 Database Credentials</span>
+            <span className="text-[10px] text-[#175CD3] font-normal">Click a role above to auto-fill</span>
+          </div>
+          <div className="space-y-1.5 text-[#344054]">
+            <div className="flex items-center justify-between">
+              <span className="text-[#667085]">Ambulance Driver:</span>
+              <code className="bg-white px-1.5 py-0.5 border border-[#D0D5DD] rounded text-[#175CD3] font-mono text-[11px]">driver@lifelane.demo</code>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[#667085]">Traffic Police:</span>
+              <code className="bg-white px-1.5 py-0.5 border border-[#D0D5DD] rounded text-[#175CD3] font-mono text-[11px]">police@lifelane.demo</code>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[#667085]">Hospital Desk:</span>
+              <code className="bg-white px-1.5 py-0.5 border border-[#D0D5DD] rounded text-[#175CD3] font-mono text-[11px]">hospital@lifelane.demo</code>
+            </div>
+            <div className="pt-2 mt-1.5 border-t border-[#EAECF0] flex items-center justify-between text-[#182230]">
+              <span className="font-medium text-[#475467]">Default Password:</span>
+              <code className="bg-white px-2 py-0.5 border border-[#B2DDFF] rounded text-[#174187] font-semibold font-mono text-[11px]">Demo@123</code>
+            </div>
+          </div>
+        </div>
+
         {/* Footer */}
         <p className="text-center text-xs text-[#667085] mt-6">Authorized personnel only</p>
       </div>

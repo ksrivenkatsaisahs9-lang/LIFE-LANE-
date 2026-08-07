@@ -461,22 +461,42 @@ export default function AmbulancePage() {
     const totalSteps = coordsToUse.length;
 
     const interval = setInterval(() => {
-      stepIndex = (stepIndex + 1) % totalSteps;
+      if (stepIndex >= totalSteps - 1) {
+        clearInterval(interval);
+        setJourneyStatus('COMPLETED');
+        const destPoint = coordsToUse[totalSteps - 1];
+        if (destPoint && Array.isArray(destPoint) && destPoint.length >= 2) {
+          setCurrentPosition({
+            latitude: destPoint[0],
+            longitude: destPoint[1],
+            status: 'COMPLETED',
+          });
+        }
+        setRemainingKm(0);
+        setRemainingSec(0);
+        setCompletedInfo({
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          hospitalName: currentHosp?.name || 'Destination Hospital',
+        });
+        return;
+      }
+
+      stepIndex += 1;
       const point = coordsToUse[stepIndex];
       if (point && Array.isArray(point) && point.length >= 2) {
         const [lat, lng] = point;
         setCurrentPosition({
           latitude: lat,
           longitude: lng,
-          status: stepIndex > totalSteps - 5 ? 'APPROACHING' : 'EN_ROUTE',
+          status: stepIndex >= totalSteps - 5 ? 'APPROACHING' : 'EN_ROUTE',
         });
 
-        const progressRatio = (totalSteps - stepIndex) / totalSteps;
+        const progressRatio = (totalSteps - 1 - stepIndex) / Math.max(1, totalSteps - 1);
         setRemainingKm(Number((progressRatio * 5.76).toFixed(2)));
-        setRemainingSec(Math.max(10, Math.round(progressRatio * 360)));
+        setRemainingSec(Math.max(0, Math.round(progressRatio * 360)));
         setSpeedKmH(78);
       }
-    }, 500);
+    }, 600);
 
     return () => clearInterval(interval);
   }, [activeTrip, activeRouteCoords, previewRouteCoordinates, selectedHospitalId, hospitals, location]);

@@ -10,16 +10,20 @@ export function connectSocket() {
     return socket;
   }
 
-  // Derive Socket URL from API URL (e.g. http://localhost:5000/api -> http://localhost:5000)
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  const socketUrl = apiUrl.replace(/\/api\/?$/, '');
+  // Derive Socket URL safely
+  let socketUrl = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL;
+  if (!socketUrl) {
+    socketUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000';
+  } else {
+    socketUrl = socketUrl.replace(/\/api\/?$/, '');
+  }
 
   socket = io(socketUrl, {
     auth: { token },
     transports: ['websocket', 'polling'],
     autoConnect: true,
     reconnection: true,
-    reconnectionAttempts: 10,
+    reconnectionAttempts: 5,
     reconnectionDelay: 1000,
   });
 

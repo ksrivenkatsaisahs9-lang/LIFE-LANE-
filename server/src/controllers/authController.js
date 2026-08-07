@@ -150,7 +150,7 @@ const login = async (req, res) => {
       const systemUser = MOCK_USERS[email.toLowerCase()];
       if (systemUser) {
         user = systemUser;
-        // Auto-seed into DB if possible
+        // Auto-seed system user into DB if possible
         try {
           await supabase.from('users').insert({
             id: systemUser.id,
@@ -169,6 +169,49 @@ const login = async (req, res) => {
           });
         } catch (seedErr) {
           // Ignore RLS or DB duplicate errors
+        }
+      } else {
+        // 3. For any new custom email (e.g. user@gmail.com), auto-create DB account
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(password, salt);
+        const emailLower = email.toLowerCase();
+        
+        let role = 'AMBULANCE';
+        let area = 'Koramangala, Bengaluru';
+        if (emailLower.includes('police')) {
+          role = 'POLICE';
+          area = 'Richmond Circle, Bengaluru';
+        } else if (emailLower.includes('hospital') || emailLower.includes('desk') || emailLower.includes('doctor')) {
+          role = 'HOSPITAL';
+          area = 'Indiranagar, Bengaluru';
+        }
+
+        const newUserPayload = {
+          name: email.split('@')[0],
+          email: emailLower,
+          password_hash: passwordHash,
+          role,
+          area,
+          is_verified: true,
+          is_active: true,
+        };
+
+        try {
+          const { data: createdUser } = await supabase
+            .from('users')
+            .insert(newUserPayload)
+            .select()
+            .single();
+
+          user = createdUser || {
+            id: require('crypto').randomUUID(),
+            ...newUserPayload,
+          };
+        } catch (e) {
+          user = {
+            id: require('crypto').randomUUID(),
+            ...newUserPayload,
+          };
         }
       }
     }

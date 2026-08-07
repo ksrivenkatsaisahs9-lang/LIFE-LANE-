@@ -8,6 +8,7 @@ const demoUsers = [
     email: 'driver@lifelane.demo',
     password: 'Demo@123',
     role: 'AMBULANCE',
+    area: 'Koramangala, Bengaluru',
     vehicle_number: 'AMB-1042',
   },
   {
@@ -15,6 +16,7 @@ const demoUsers = [
     email: 'police@lifelane.demo',
     password: 'Demo@123',
     role: 'POLICE',
+    area: 'Richmond Circle, Bengaluru',
     badge_id: 'TP-2147',
   },
   {
@@ -22,6 +24,7 @@ const demoUsers = [
     email: 'hospital@lifelane.demo',
     password: 'Demo@123',
     role: 'HOSPITAL',
+    area: 'Indiranagar, Bengaluru',
     hospital_name: 'City General Hospital',
   },
 ];

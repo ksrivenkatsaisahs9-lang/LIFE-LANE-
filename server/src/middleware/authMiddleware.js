@@ -28,26 +28,20 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-    let user = Object.values(MOCK_USERS).find((u) => u.id === decoded.userId) || null;
+    let user = null;
+    try {
+      const dbRes = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', decoded.userId)
+        .maybeSingle();
+      user = dbRes ? dbRes.data : null;
+    } catch (e) {
+      // Ignore DB fetch errors
+    }
 
     if (!user) {
-      // Try Supabase with short timeout if not a mock user
-      try {
-        const supabasePromise = supabase
-          .from('users')
-          .select('id, name, email, role, phone, organization, badge_id, vehicle_number, hospital_name, hospital_id, is_verified, is_active')
-          .eq('id', decoded.userId)
-          .maybeSingle();
-
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Supabase timeout')), 300)
-        );
-
-        const dbRes = await Promise.race([supabasePromise, timeoutPromise]);
-        user = dbRes ? dbRes.data : null;
-      } catch (e) {
-        // DB unavailable or timed out
-      }
+      user = Object.values(MOCK_USERS).find((u) => u.id === decoded.userId) || null;
     }
 
     if (!user || !user.is_active) {

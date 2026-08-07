@@ -10,9 +10,27 @@ const ROLE_ROUTES = {
 };
 
 const DEMO_ACCOUNTS = [
-  { label: 'Ambulance Driver', email: 'driver@lifelane.demo', password: 'Demo@123', icon: Ambulance },
-  { label: 'Traffic Police', email: 'police@lifelane.demo', password: 'Demo@123', icon: Shield },
-  { label: 'Hospital', email: 'hospital@lifelane.demo', password: 'Demo@123', icon: Building2 },
+  {
+    label: 'Ambulance Driver',
+    area: 'Koramangala Zone',
+    email: 'driver@lifelane.demo',
+    password: 'Demo@123',
+    icon: Ambulance,
+  },
+  {
+    label: 'Traffic Police',
+    area: 'Richmond Circle Zone',
+    email: 'police@lifelane.demo',
+    password: 'Demo@123',
+    icon: Shield,
+  },
+  {
+    label: 'Hospital',
+    area: 'Indiranagar Zone',
+    email: 'hospital@lifelane.demo',
+    password: 'Demo@123',
+    icon: Building2,
+  },
 ];
 
 export default function LoginPage() {
@@ -21,6 +39,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedArea, setSelectedArea] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -51,12 +70,13 @@ export default function LoginPage() {
   const fillDemo = (account) => {
     setEmail(account.email);
     setPassword(account.password);
+    setSelectedArea(account.area);
     setError('');
   };
 
   return (
     <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-1 text-xs text-[#175CD3] hover:underline font-medium mb-4">
@@ -75,7 +95,7 @@ export default function LoginPage() {
         <div className="bg-white border border-[#E4E7EC] rounded-[12px] p-6 shadow-sm">
           <div className="mb-6">
             <h2 className="text-base font-semibold text-[#182230]">Welcome back</h2>
-            <p className="text-sm text-[#667085] mt-1">Sign in to access emergency operations.</p>
+            <p className="text-sm text-[#667085] mt-1">Sign in with database credentials to access live emergency operations.</p>
           </div>
 
           {/* Error */}
@@ -90,13 +110,17 @@ export default function LoginPage() {
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-[#182230] mb-1.5">
-                Email
+                Email Address
               </label>
               <input
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  const matched = DEMO_ACCOUNTS.find(a => a.email.toLowerCase() === e.target.value.toLowerCase());
+                  if (matched) setSelectedArea(matched.area);
+                }}
                 placeholder="name@organization.com"
                 required
                 className="w-full px-3 py-2 text-sm bg-white border border-[#E4E7EC] rounded-[8px] text-[#182230] placeholder-[#667085] focus:outline-none focus:border-[#172033] transition-colors duration-200"
@@ -129,6 +153,14 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Operational Area Display */}
+            {selectedArea && (
+              <div className="flex items-center justify-between p-2.5 bg-[#F0F4FE] border border-[#B2DDFF] rounded-[8px]">
+                <span className="text-xs font-medium text-[#175CD3]">Operational Area:</span>
+                <span className="text-xs font-semibold text-[#174187]">{selectedArea}</span>
+              </div>
+            )}
+
             {/* Submit */}
             <button
               type="submit"
@@ -138,7 +170,7 @@ export default function LoginPage() {
               {submitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Signing in...
+                  Authenticating with DB...
                 </>
               ) : (
                 'Sign in'
@@ -147,21 +179,34 @@ export default function LoginPage() {
           </form>
         </div>
 
-        {/* Demo Access */}
+        {/* Demo Access Roles & Areas */}
         <div className="mt-4 bg-white border border-[#E4E7EC] rounded-[12px] p-4 shadow-sm">
-          <p className="text-xs font-medium text-[#667085] uppercase tracking-wider mb-3">Demo access</p>
-          <div className="flex gap-2">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium text-[#667085] uppercase tracking-wider">Select Role & Operational Area</p>
+            <span className="text-[10px] bg-[#ECFDF3] text-[#027A48] border border-[#ABE5C6] px-2 py-0.5 rounded-full font-medium">Real DB Auth</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
             {DEMO_ACCOUNTS.map((account) => {
               const Icon = account.icon;
+              const isSelected = email === account.email;
               return (
                 <button
                   key={account.email}
                   type="button"
                   onClick={() => fillDemo(account)}
-                  className="flex-1 flex flex-col items-center gap-1.5 px-2 py-2.5 bg-[#F6F7F9] border border-[#E4E7EC] rounded-[8px] hover:border-[#D0D5DD] hover:bg-white text-[#667085] hover:text-[#182230] transition-all duration-200"
+                  className={`flex flex-col items-center justify-between p-2.5 border rounded-[8px] transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-[#F0F4FE] border-[#175CD3] text-[#175CD3] shadow-xs'
+                      : 'bg-[#F6F7F9] border-[#E4E7EC] hover:border-[#D0D5DD] hover:bg-white text-[#667085] hover:text-[#182230]'
+                  }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-xs font-medium leading-tight text-center">{account.label}</span>
+                  <div className="flex flex-col items-center gap-1">
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="text-xs font-semibold leading-tight text-center">{account.label}</span>
+                  </div>
+                  <span className="text-[10px] font-medium text-[#175CD3] bg-white px-1.5 py-0.5 rounded border border-[#D0D5DD] mt-1.5 w-full text-center truncate">
+                    {account.area}
+                  </span>
                 </button>
               );
             })}

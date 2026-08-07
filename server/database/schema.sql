@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS users (
   email           TEXT UNIQUE NOT NULL,
   password_hash   TEXT NOT NULL,
   role            TEXT NOT NULL CHECK (role IN ('AMBULANCE', 'POLICE', 'HOSPITAL')),
+  area            TEXT,
   phone           TEXT,
   organization    TEXT,
   badge_id        TEXT,
@@ -46,8 +47,9 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
--- Ensure hospital_id column exists if users table was previously created without it
+-- Ensure hospital_id and area columns exist if users table was previously created
 ALTER TABLE users ADD COLUMN IF NOT EXISTS hospital_id UUID REFERENCES hospitals(id) ON DELETE SET NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS area TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);

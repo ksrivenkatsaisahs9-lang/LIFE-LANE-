@@ -8,19 +8,26 @@ const { MOCK_USERS } = require('../utils/mockUsers');
  * Format a user row for API responses — never return password_hash.
  */
 function sanitizeUser(row) {
+  const defaultArea = row.role === 'AMBULANCE'
+    ? 'Koramangala, Bengaluru'
+    : row.role === 'POLICE'
+    ? 'Richmond Circle, Bengaluru'
+    : 'Indiranagar, Bengaluru';
+
   return {
     id: row.id,
     name: row.name,
     email: row.email,
     role: row.role,
+    area: row.area || row.organization || defaultArea,
     phone: row.phone,
     organization: row.organization,
-    badgeId: row.badge_id,
-    vehicleNumber: row.vehicle_number,
-    hospitalName: row.hospital_name,
-    hospitalId: row.hospital_id,
-    isVerified: row.is_verified,
-    isActive: row.is_active,
+    badgeId: row.badge_id || row.badgeId,
+    vehicleNumber: row.vehicle_number || row.vehicleNumber,
+    hospitalName: row.hospital_name || row.hospitalName,
+    hospitalId: row.hospital_id || row.hospitalId,
+    isVerified: row.is_verified ?? true,
+    isActive: row.is_active ?? true,
   };
 }
 
@@ -39,9 +46,9 @@ const register = async (req, res) => {
       });
     }
 
-    const { name, email, password, role, phone, organization, badgeId, vehicleNumber, hospitalName } = parsed.data;
+    const { name, email, password, role, area, phone, organization, badgeId, vehicleNumber, hospitalName } = parsed.data;
 
-    // Check if user already exists
+    // Check if user already exists in DB
     const { data: existing } = await supabase
       .from('users')
       .select('id')
@@ -59,7 +66,7 @@ const register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Insert user
+    // Insert user into Database
     const { data: user, error } = await supabase
       .from('users')
       .insert({
@@ -67,6 +74,7 @@ const register = async (req, res) => {
         email,
         password_hash: passwordHash,
         role,
+        area: area || organization || null,
         phone: phone || null,
         organization: organization || null,
         badge_id: badgeId || null,
@@ -80,7 +88,7 @@ const register = async (req, res) => {
       console.error('Register insert error:', error.message);
       return res.status(500).json({
         success: false,
-        message: 'Registration failed',
+        message: 'Registration failed: ' + error.message,
       });
     }
 
@@ -121,29 +129,15 @@ const login = async (req, res) => {
 
     const { email, password } = parsed.data;
 
-    // Fast path for demo accounts
-    const mockUser = MOCK_USERS[email.toLowerCase()];
-    if (mockUser) {
-      const token = jwt.sign(
-        { userId: mockUser.id, role: mockUser.role },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-      );
-      return res.status(200).json({
-        success: true,
-        token,
-        user: sanitizeUser(mockUser),
-      });
-    }
-
     let user = null;
     let fetchError = null;
 
+    // 1. Query Supabase database for the user
     try {
       const dbRes = await supabase
         .from('users')
         .select('*')
-        .eq('email', email)
+        .eq('email', email.toLowerCase())
         .maybeSingle();
       user = dbRes.data;
       fetchError = dbRes.error;
@@ -151,20 +145,49 @@ const login = async (req, res) => {
       fetchError = e;
     }
 
-    if (fetchError || !user) {
+    // 2. If user is not yet in Supabase DB, check initialized system accounts
+    if (!user) {
+      const systemUser = MOCK_USERS[email.toLowerCase()];
+      if (systemUser) {
+        user = systemUser;
+        // Auto-seed into DB if possible
+        try {
+          await supabase.from('users').insert({
+            id: systemUser.id,
+            name: systemUser.name,
+            email: systemUser.email,
+            password_hash: systemUser.password_hash,
+            role: systemUser.role,
+            area: systemUser.area,
+            phone: systemUser.phone,
+            vehicle_number: systemUser.vehicle_number || null,
+            badge_id: systemUser.badge_id || null,
+            hospital_name: systemUser.hospital_name || null,
+            hospital_id: systemUser.hospital_id || null,
+            is_verified: true,
+            is_active: true,
+          });
+        } catch (seedErr) {
+          // Ignore RLS or DB duplicate errors
+        }
+      }
+    }
+
+    if (!user) {
       return res.status(401).json({
         success: false,
         message: 'Invalid email or password',
       });
     }
 
-    if (!user.is_active) {
+    if (user.is_active === false) {
       return res.status(403).json({
         success: false,
         message: 'Account is deactivated',
       });
     }
 
+    // 3. Verify password hash using bcrypt
     if (user.password_hash) {
       const isMatch = await bcrypt.compare(password, user.password_hash);
       if (!isMatch) {

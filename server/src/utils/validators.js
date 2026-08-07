@@ -17,6 +17,7 @@ const registerSchema = z.object({
     required_error: 'Role is required',
     invalid_type_error: 'Role must be AMBULANCE, POLICE, or HOSPITAL',
   }),
+  area: z.string().optional(),
   phone: z.string().optional(),
   organization: z.string().optional(),
   badgeId: z.string().optional(),

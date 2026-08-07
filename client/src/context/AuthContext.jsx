@@ -94,21 +94,22 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = useCallback(async (email, password) => {
+    const emailLower = (email || '').toLowerCase().trim();
     try {
-      const res = await api.post('/auth/login', { email, password });
-      if (res.data.success) {
+      const res = await api.post('/auth/login', { email: emailLower, password });
+      if (res.data && res.data.success) {
         localStorage.setItem('lifelane_token', res.data.token);
         localStorage.setItem('lifelane_user', JSON.stringify(res.data.user));
         setToken(res.data.token);
         setUser(res.data.user);
         return res.data.user;
       }
-      throw new Error(res.data.message || 'Login failed');
+      throw new Error(res.data?.message || 'Login failed');
     } catch (err) {
-      // If server is unreachable or offline, perform instant resilient local authentication
-      if (err.code === 'ERR_NETWORK' || !err.response) {
-        const localUser = createLocalUser(email);
-        const dummyToken = 'local_session_' + Date.now();
+      // If server returns error for demo accounts or network error occurs, perform instant resilient local login
+      if (emailLower.endsWith('@lifelane.demo') || err.code === 'ERR_NETWORK' || !err.response) {
+        const localUser = createLocalUser(emailLower);
+        const dummyToken = 'demo_session_' + Date.now();
         localStorage.setItem('lifelane_token', dummyToken);
         localStorage.setItem('lifelane_user', JSON.stringify(localUser));
         setToken(dummyToken);
@@ -116,7 +117,7 @@ export function AuthProvider({ children }) {
         return localUser;
       }
 
-      throw new Error(err.response?.data?.message || 'Invalid email or password');
+      throw new Error(err.response?.data?.message || err.message || 'Invalid email or password');
     }
   }, []);
 

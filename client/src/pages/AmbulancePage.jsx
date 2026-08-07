@@ -106,37 +106,66 @@ function generateFallbackRouteGeometry(start, dest, hospitalId = null) {
   const destLat = dest.latitude || 12.9592;
   const destLng = dest.longitude || 77.6445;
 
+  const targetHospId = String(hospitalId || dest.id || 'hosp-1');
   const waypoints = [[startLat, startLng]];
 
-  if (hospitalId === 'hosp-1' || !hospitalId) {
-    waypoints.push([12.9412, 77.6295]);
-    waypoints.push([12.9482, 77.6365]);
-    waypoints.push([12.9550, 77.6415]);
-  } else if (hospitalId === 'hosp-2') {
-    waypoints.push([12.9390, 77.6180]);
-    waypoints.push([12.9470, 77.6080]);
-    waypoints.push([12.9550, 77.6000]);
-    waypoints.push([12.9600, 77.6080]);
-  } else if (hospitalId === 'hosp-3') {
-    waypoints.push([12.9412, 77.6295]);
-    waypoints.push([12.9482, 77.6365]);
-    waypoints.push([12.9620, 77.6250]);
-    waypoints.push([12.9725, 77.6140]);
-    waypoints.push([12.9720, 77.6040]);
-  } else if (hospitalId === 'hosp-4') {
-    waypoints.push([12.9482, 77.6365]);
-    waypoints.push([12.9620, 77.6250]);
-    waypoints.push([12.9750, 77.6200]);
-  } else if (hospitalId === 'hosp-5') {
-    waypoints.push([12.9280, 77.6350]);
-    waypoints.push([12.9240, 77.6500]);
-    waypoints.push([12.9255, 77.6680]);
+  if (targetHospId.includes('1') || targetHospId.includes('hosp-1')) {
+    // City General Hospital (Indiranagar) - via 80ft Rd, Sony World Signal, Intermediate Ring Rd & Domlur Flyover
+    waypoints.push([12.9372, 77.6258]); // 80 Feet Rd Koramangala
+    waypoints.push([12.9412, 77.6295]); // Sony World Junction
+    waypoints.push([12.9435, 77.6318]); // Koramangala 100ft Rd
+    waypoints.push([12.9455, 77.6340]); // Intermediate Ring Rd (Oasis)
+    waypoints.push([12.9482, 77.6365]); // Eejipura Signal (JNC-A)
+    waypoints.push([12.9515, 77.6390]); // Embassy Golf Links Turn
+    waypoints.push([12.9548, 77.6412]); // Domlur Flyover Approach
+    waypoints.push([12.9565, 77.6425]); // Domlur Junction Turn
+    waypoints.push([12.9578, 77.6435]); // Indiranagar 100ft Rd Entry
+  } else if (targetHospId.includes('2') || targetHospId.includes('hosp-2')) {
+    // St. Martha Emergency Centre (Nrupatunga Rd) - via Hosur Rd, Dairy Circle & Richmond Circle
+    waypoints.push([12.9370, 77.6210]); // Hosur Road Turn
+    waypoints.push([12.9390, 77.6180]); // Adugodi Junction
+    waypoints.push([12.9430, 77.6130]); // Forum Mall Signal
+    waypoints.push([12.9470, 77.6080]); // Dairy Circle (JNC-B)
+    waypoints.push([12.9510, 77.6040]); // Lalbagh Fort Rd
+    waypoints.push([12.9550, 77.6000]); // Richmond Circle (JNC-C)
+    waypoints.push([12.9580, 77.6040]); // Corporation Circle
+    waypoints.push([12.9600, 77.6080]); // Hudson Circle
+    waypoints.push([12.9625, 77.6015]); // Nrupatunga Rd
+  } else if (targetHospId.includes('3') || targetHospId.includes('hosp-3')) {
+    // Central Medical Centre (MG Road) - via Sony World, Ring Rd & Trinity Circle
+    waypoints.push([12.9372, 77.6258]); // 80 Feet Rd
+    waypoints.push([12.9412, 77.6295]); // Sony World Signal
+    waypoints.push([12.9482, 77.6365]); // Intermediate Ring Rd
+    waypoints.push([12.9550, 77.6320]); // Victoria Layout
+    waypoints.push([12.9620, 77.6250]); // Old Airport Rd Junction
+    waypoints.push([12.9680, 77.6190]); // Command Hospital Turn
+    waypoints.push([12.9725, 77.6140]); // Trinity Circle
+    waypoints.push([12.9720, 77.6040]); // MG Road Corridor
+  } else if (targetHospId.includes('4') || targetHospId.includes('hosp-4')) {
+    // Lakeside Trauma Centre (Ulsoor Lake) - via Ring Rd, Kensington Rd & Ulsoor Lake
+    waypoints.push([12.9372, 77.6258]); // 80 Feet Rd
+    waypoints.push([12.9412, 77.6295]); // Sony World Signal
+    waypoints.push([12.9482, 77.6365]); // Intermediate Ring Rd
+    waypoints.push([12.9580, 77.6300]); // Domlur Layout
+    waypoints.push([12.9620, 77.6250]); // Kensington Rd
+    waypoints.push([12.9700, 77.6220]); // Murphy Town Signal
+    waypoints.push([12.9750, 77.6200]); // Ulsoor Lake Rd
+    waypoints.push([12.9780, 77.6190]); // Lake Promenade
+  } else if (targetHospId.includes('5') || targetHospId.includes('hosp-5')) {
+    // Metro Emergency Hospital (Bellandur ORR) - via HSR 80ft Rd, Agara Flyover & Iblur
+    waypoints.push([12.9310, 77.6290]); // HSR Layout 27th Main
+    waypoints.push([12.9280, 77.6350]); // HSR 80 Ft Rd
+    waypoints.push([12.9260, 77.6430]); // Agara Lake Turn
+    waypoints.push([12.9240, 77.6500]); // Agara Flyover
+    waypoints.push([12.9248, 77.6590]); // Sarjapur ORR Junction
+    waypoints.push([12.9255, 77.6680]); // Iblur Junction
+    waypoints.push([12.9268, 77.6770]); // Bellandur EcoSpace Flyover
   }
 
   waypoints.push([destLat, destLng]);
 
   const coords = [];
-  const stepsPerSegment = 10;
+  const stepsPerSegment = 12;
   for (let i = 0; i < waypoints.length - 1; i++) {
     const [sLat, sLng] = waypoints[i];
     const [eLat, eLng] = waypoints[i + 1];

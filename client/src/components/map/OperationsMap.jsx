@@ -6,36 +6,21 @@ import { Navigation } from 'lucide-react';
 // Controller component to track map movement and handle smooth, lag-free viewport updates
 function MapViewController({ center, zoom, bounds, followMode, isUserInteracting, setIsUserInteracting, junctions = [], ambulanceLocation = null }) {
   const map = useMap();
-  const lastTargetRef = useRef(null);
 
-  // Listen for user drag / manual pan
+  // Listen for user manual drag / pan
   useMapEvents({
     dragstart: () => setIsUserInteracting(true),
   });
 
   useEffect(() => {
-    if (isUserInteracting) return;
+    if (isUserInteracting || !center) return;
 
-    // If ambulance is within 500m of Junction 01, zoom to 16.5 once cleanly
-    const j1 = junctions[0];
-    const isCloseToJunction = j1 && j1.distanceMeters !== undefined && j1.distanceMeters <= 500;
-
-    if (isCloseToJunction && j1.latitude && j1.longitude) {
-      const key = `junc-${j1.latitude}-${j1.longitude}`;
-      if (lastTargetRef.current !== key) {
-        lastTargetRef.current = key;
-        map.setView([j1.latitude, j1.longitude], 16.5, { animate: false });
-      }
-    } else if (followMode && center) {
-      map.setView(center, map.getZoom() || 16, { animate: false });
-    } else if (bounds && bounds.length > 1 && !followMode) {
-      const boundsKey = `bounds-${bounds.length}-${bounds[0]?.[0]}-${bounds[bounds.length - 1]?.[0]}`;
-      if (lastTargetRef.current !== boundsKey) {
-        lastTargetRef.current = boundsKey;
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16, animate: false });
-      }
+    if (followMode) {
+      map.setView(center, map.getZoom() || 16, { animate: true, duration: 0.5 });
+    } else if (bounds && bounds.length > 1) {
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16, animate: true });
     }
-  }, [map, center, bounds, followMode, isUserInteracting, junctions, ambulanceLocation]);
+  }, [map, center, bounds, followMode, isUserInteracting]);
 
   return null;
 }

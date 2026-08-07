@@ -4,6 +4,7 @@ import OperationsMap from '../components/map/OperationsMap';
 import LoadingState from '../components/common/LoadingState';
 import api from '../services/api';
 import { connectSocket, joinTripRoom } from '../services/socket';
+import { fetchOSRMRoute, calculateBearing } from '../services/osrmService';
 import {
   Navigation,
   MapPin,
@@ -469,7 +470,7 @@ export default function AmbulancePage() {
     };
   }, [activeTrip, hospitals]);
 
-  // 3. Live Smooth Real-Time Ambulance Movement Ticker along route corridor
+  // 3. Live Smooth Uber/Rapido-Style Navigation Ticker along OSRM road coordinates
   useEffect(() => {
     if (!activeTrip) return;
 
@@ -488,6 +489,7 @@ export default function AmbulancePage() {
 
     let stepIndex = 0;
     const totalSteps = coordsToUse.length;
+    const initialDistKm = 5.4;
 
     const interval = setInterval(() => {
       if (stepIndex >= totalSteps - 1) {
@@ -498,6 +500,7 @@ export default function AmbulancePage() {
           setCurrentPosition({
             latitude: destPoint[0],
             longitude: destPoint[1],
+            bearing: 0,
             status: 'COMPLETED',
           });
         }
@@ -510,35 +513,74 @@ export default function AmbulancePage() {
         return;
       }
 
+      const currPt = coordsToUse[stepIndex];
       stepIndex += 1;
-      const point = coordsToUse[stepIndex];
-      if (point && Array.isArray(point) && point.length >= 2) {
-        const [lat, lng] = point;
+      const nextPt = coordsToUse[stepIndex];
+
+      if (currPt && nextPt && Array.isArray(currPt) && Array.isArray(nextPt)) {
+        const [cLat, cLng] = currPt;
+        const [nLat, nLng] = nextPt;
+
+        const bearing = calculateBearing(cLat, cLng, nLat, nLng);
         setCurrentPosition({
-          latitude: lat,
-          longitude: lng,
+          latitude: nLat,
+          longitude: nLng,
+          bearing: bearing,
           status: stepIndex >= totalSteps - 5 ? 'APPROACHING' : 'EN_ROUTE',
         });
 
         const progressRatio = (totalSteps - 1 - stepIndex) / Math.max(1, totalSteps - 1);
-        setRemainingKm(Number((progressRatio * 5.76).toFixed(2)));
+        setRemainingKm(Number((progressRatio * initialDistKm).toFixed(2)));
         setRemainingSec(Math.max(0, Math.round(progressRatio * 360)));
         setSpeedKmH(78);
+
+        // Update real-time junction distance and emergency signal states
+        setJunctions((prevJunctions) =>
+          prevJunctions.map((junc) => {
+            if (!junc.latitude || !junc.longitude) return junc;
+
+            const dLat = (junc.latitude - nLat) * 111000;
+            const dLng = (junc.longitude - nLng) * 111000 * Math.cos((nLat * Math.PI) / 180);
+            const distMeters = Math.round(Math.sqrt(dLat * dLat + dLng * dLng));
+
+            let newSignalState = junc.signalState || 'NORMAL';
+            if (distMeters <= 350 && distMeters > 50) {
+              newSignalState = 'EMERGENCY_PRIORITY';
+            } else if (distMeters <= 50 && distMeters >= 0) {
+              newSignalState = 'TRANSITION';
+            } else if (distMeters > 350) {
+              newSignalState = 'NORMAL';
+            }
+
+            return {
+              ...junc,
+              distanceMeters: distMeters,
+              signalState: newSignalState,
+            };
+          })
+        );
       }
-    }, 600);
+    }, 450);
 
     return () => clearInterval(interval);
   }, [activeTrip, activeRouteCoords, previewRouteCoordinates, selectedHospitalId, hospitals, location]);
 
-  // Update scenario infrastructure and preview route polyline dynamically when selected hospital changes
+  // Fetch OSRM GeoJSON route coordinates when selected hospital or location changes
   useEffect(() => {
+    let isMounted = true;
     const safeHospList = hospitals && hospitals.length > 0 ? hospitals : FALLBACK_HOSPITALS;
     const selectedHosp = safeHospList.find((h) => String(h.id) === String(selectedHospitalId)) || safeHospList[0];
     if (!selectedHosp) return;
 
     const currentLoc = location || DEFAULT_DEMO_LOCATION;
-    const coords = generateFallbackRouteGeometry(currentLoc, selectedHosp, selectedHosp.id);
-    setPreviewRouteCoordinates(coords);
+
+    async function loadRoute() {
+      const osrmRes = await fetchOSRMRoute(currentLoc, selectedHosp);
+      if (isMounted && osrmRes && osrmRes.coordinates) {
+        setPreviewRouteCoordinates(osrmRes.coordinates);
+      }
+    }
+    loadRoute();
 
     const code = selectedHosp.scenarioCode || 'INTERSECTION_CORRIDOR';
 
@@ -555,6 +597,8 @@ export default function AmbulancePage() {
       setIncidents([]);
       setCameras([]);
     }
+
+    return () => { isMounted = false; };
   }, [selectedHospitalId, hospitals, location]);
 
   // GPS Location Detection
@@ -614,20 +658,22 @@ export default function AmbulancePage() {
       }
     } catch (err) {
       console.warn('Intelligence API call error:', err);
-      // Fallback deterministic result if API error occurs
+      const osrmRes = await fetchOSRMRoute(location, selectedHospital);
+      const roadCoords = osrmRes?.coordinates || generateFallbackRouteGeometry(location, selectedHospital);
+
       const fallbackResult = {
         recommendedRoute: {
           routeId: 'route-b',
           name: 'Arterial Bypass Corridor (HAL Highway Bypass)',
-          coordinates: generateFallbackRouteGeometry(location, selectedHospital),
-          distanceKm: 5.1,
-          baseEstimatedMinutes: 9,
+          coordinates: roadCoords,
+          distanceKm: osrmRes?.distanceKm || 5.1,
+          baseEstimatedMinutes: osrmRes?.durationMinutes || 9,
           trafficLevel: 'LOW',
           congestionScore: 18,
-          predictedMinutes: 9,
+          predictedMinutes: osrmRes?.durationMinutes || 9,
         },
         alternatives: [
-          { routeId: 'route-b', name: 'Arterial Bypass Corridor (HAL Highway Bypass)', distanceKm: 5.1, predictedMinutes: 9, trafficLevel: 'LOW', congestionScore: 18 },
+          { routeId: 'route-b', name: 'Arterial Bypass Corridor (HAL Highway Bypass)', distanceKm: osrmRes?.distanceKm || 5.1, predictedMinutes: osrmRes?.durationMinutes || 9, trafficLevel: 'LOW', congestionScore: 18 },
           { routeId: 'route-c', name: 'Outer Ring Corridor (Indiranagar 100ft Rd)', distanceKm: 4.8, predictedMinutes: 11, trafficLevel: 'MODERATE', congestionScore: 45 },
           { routeId: 'route-a', name: 'Primary Direct Corridor (Old Airport Rd)', distanceKm: 4.4, predictedMinutes: 13, trafficLevel: 'HIGH', congestionScore: 78 },
         ],
@@ -665,6 +711,9 @@ export default function AmbulancePage() {
     setError('');
 
     try {
+      const osrmRes = await fetchOSRMRoute(location || DEFAULT_DEMO_LOCATION, selectedHospital);
+      const roadCoords = osrmRes?.coordinates || previewRouteCoordinates || generateFallbackRouteGeometry(location || DEFAULT_DEMO_LOCATION, selectedHospital);
+
       const res = await api.post('/trips', {
         hospitalId: selectedHospital.id,
         emergencyType,
@@ -678,15 +727,22 @@ export default function AmbulancePage() {
         const trip = res.data.trip;
         setActiveTrip({
           ...trip,
-          routeCoordinates: activeSelectedRoute?.coordinates || trip.routeCoordinates,
+          routeCoordinates: roadCoords,
         });
+        setActiveRouteCoords(roadCoords);
+
+        const p1 = roadCoords[0] || [trip.startLatitude, trip.startLongitude];
+        const p2 = roadCoords[1] || p1;
+        const initialBearing = calculateBearing(p1[0], p1[1], p2[0], p2[1]);
+
         setCurrentPosition({
-          latitude: trip.startLatitude,
-          longitude: trip.startLongitude,
+          latitude: p1[0],
+          longitude: p1[1],
+          bearing: initialBearing,
           status: 'EN_ROUTE',
         });
-        setRemainingKm(activeSelectedRoute?.distanceKm || trip.estimatedDistanceKm || 5.1);
-        setRemainingSec((activeSelectedRoute?.predictedMinutes || trip.estimatedDurationMinutes || 9) * 60);
+        setRemainingKm(osrmRes?.distanceKm || 5.1);
+        setRemainingSec((osrmRes?.durationMinutes || 9) * 60);
         setJourneyStatus('EN_ROUTE');
 
         const socket = connectSocket();

@@ -58,13 +58,6 @@ function OperationsMap({
     ? [ambulanceLocation.latitude, ambulanceLocation.longitude]
     : center;
 
-  const displayRouteCoords = useMemo(() => {
-    if (!routeCoordinates || routeCoordinates.length === 0) return [];
-    if (!ambulanceLocation) return routeCoordinates;
-    const ambPt = [ambulanceLocation.latitude, ambulanceLocation.longitude];
-    return [ambPt, ...routeCoordinates];
-  }, [routeCoordinates, ambulanceLocation]);
-
   return (
     <div className="w-full h-full relative z-0">
       <MapContainer
@@ -89,10 +82,10 @@ function OperationsMap({
           ambulanceLocation={ambulanceLocation}
         />
 
-        {/* Route Polyline - Extends directly from ambulance position forward to hospital destination */}
-        {displayRouteCoords && displayRouteCoords.length > 0 && (
+        {/* Fixed Navigation Route Polyline - Drawn ONCE from OSRM route coordinates */}
+        {routeCoordinates && routeCoordinates.length > 0 && (
           <Polyline
-            positions={displayRouteCoords}
+            positions={routeCoordinates}
             pathOptions={{
               color: '#C62828',
               weight: 6,
